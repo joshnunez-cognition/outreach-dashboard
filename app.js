@@ -6,7 +6,22 @@ today.setHours(0, 0, 0, 0);
 const addDays = (date, days) => {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
-  return next.toISOString().slice(0, 10);
+  return toDateValue(next);
+};
+
+const toDateValue = (date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const FOLLOW_UP_BUSINESS_DAYS = { LinkedIn: 2, Email: 3 };
+
+const addBusinessDays = (date, days) => {
+  const next = new Date(date);
+  let remaining = days;
+  while (remaining > 0) {
+    next.setDate(next.getDate() + 1);
+    if (next.getDay() !== 0 && next.getDay() !== 6) remaining -= 1;
+  }
+  return toDateValue(next);
 };
 
 const seedProspects = [
@@ -210,7 +225,7 @@ function queueItem(task) {
         }
         <button class="quick-button emphasis" data-contacted="${prospect.id}" data-channel="${channel}">Contacted</button>
         <button class="quick-button" data-replied="${prospect.id}">Replied</button>
-        <button class="quick-button" data-snooze="${prospect.id}" data-channel="${channel}">+3 days</button>
+        <button class="quick-button" data-snooze="${prospect.id}" data-channel="${channel}" title="Push back ${FOLLOW_UP_BUSINESS_DAYS[channel]} business days">+${FOLLOW_UP_BUSINESS_DAYS[channel]} days</button>
       </div>
     </article>
   `;
@@ -233,8 +248,8 @@ function unscheduledItem(prospect) {
             ? `<a class="quick-button" href="${escapeHtml(prospect.linkedinUrl)}" target="_blank" rel="noreferrer">LinkedIn</a>`
             : ""
         }
-        <button class="quick-button emphasis" data-snooze="${prospect.id}" data-channel="LinkedIn">LinkedIn in 3 days</button>
-        <button class="quick-button" data-snooze="${prospect.id}" data-channel="Email">Email in 3 days</button>
+        <button class="quick-button emphasis" data-snooze="${prospect.id}" data-channel="LinkedIn">LinkedIn in ${FOLLOW_UP_BUSINESS_DAYS.LinkedIn} days</button>
+        <button class="quick-button" data-snooze="${prospect.id}" data-channel="Email">Email in ${FOLLOW_UP_BUSINESS_DAYS.Email} days</button>
       </div>
     </article>
   `;
@@ -491,14 +506,15 @@ function handleAction(target) {
   if (contactedId) {
     const channel = target.closest("[data-contacted]").dataset.channel;
     const key = channel === "Email" ? "email" : "linkedin";
+    const nextFollowUp = addBusinessDays(today, FOLLOW_UP_BUSINESS_DAYS[channel]);
     return updateProspect(
       contactedId,
       {
         [`${key}LastTouch`]: addDays(today, 0),
-        [`${key}NextFollowUp`]: addDays(today, 3),
+        [`${key}NextFollowUp`]: nextFollowUp,
         status: "active",
       },
-      `${channel} contact logged. Follow-up set for 3 days.`,
+      `${channel} contact logged. Next follow-up ${dateLabel(nextFollowUp)}.`,
     );
   }
 
@@ -512,11 +528,8 @@ function handleAction(target) {
     const channel = target.closest("[data-snooze]").dataset.channel;
     const key = channel === "Email" ? "emailNextFollowUp" : "linkedinNextFollowUp";
     const prospect = prospects.find((item) => item.id === snoozeId);
-    return updateProspect(
-      snoozeId,
-      { [key]: addDays(parseDate(prospect[key]) || today, 3) },
-      "Follow-up moved 3 days.",
-    );
+    const nextFollowUp = addBusinessDays(parseDate(prospect[key]) || today, FOLLOW_UP_BUSINESS_DAYS[channel]);
+    return updateProspect(snoozeId, { [key]: nextFollowUp }, `Follow-up moved to ${dateLabel(nextFollowUp)}.`);
   }
 
   const doneId = target.closest("[data-done]")?.dataset.done;
