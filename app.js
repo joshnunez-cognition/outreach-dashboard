@@ -58,6 +58,7 @@ let prospects = loadProspects();
 let queueView = "priority";
 let activePage = "today";
 let toastTimer;
+let editingId = null;
 
 const elements = {
   pageTitle: document.querySelector("#pageTitle"),
@@ -77,6 +78,8 @@ const elements = {
   newAccountLabel: document.querySelector("#newAccountLabel"),
   newAccountInput: document.querySelector("#newAccountInput"),
   saveProspectButton: document.querySelector("#saveProspectButton"),
+  formEyebrow: document.querySelector("#formEyebrow"),
+  formTitle: document.querySelector("#formTitle"),
   detailDialog: document.querySelector("#detailDialog"),
   detailContent: document.querySelector("#detailContent"),
   searchInput: document.querySelector("#searchInput"),
@@ -89,21 +92,30 @@ function loadProspects() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return seedProspects;
-    return JSON.parse(stored).map((prospect) => {
-      if (prospect.linkedinNextFollowUp !== undefined) return prospect;
-      return {
-        ...prospect,
-        email: "",
-        linkedinLastTouch: prospect.channel === "Email" ? "" : prospect.lastTouch || "",
-        linkedinNextFollowUp: prospect.channel === "Email" ? "" : prospect.nextFollowUp || "",
-        emailLastTouch: prospect.channel === "Email" ? prospect.lastTouch || "" : "",
-        emailNextFollowUp: prospect.channel === "Email" ? prospect.nextFollowUp || "" : "",
-        status: ["replied", "complete"].includes(prospect.status) ? prospect.status : "active",
-      };
-    });
+    return JSON.parse(stored).map(normalizeProspect);
   } catch {
     return seedProspects;
   }
+}
+
+function normalizeProspect(prospect) {
+  const isLegacy = prospect.linkedinNextFollowUp === undefined && prospect.emailNextFollowUp === undefined;
+  const viaEmail = prospect.channel === "Email";
+  const text = (value) => (typeof value === "string" ? value.trim() : "");
+  return {
+    ...prospect,
+    id: prospect.id || crypto.randomUUID(),
+    name: text(prospect.name),
+    account: text(prospect.account) || "No account",
+    linkedinUrl: text(prospect.linkedinUrl),
+    email: text(prospect.email),
+    linkedinLastTouch: text(isLegacy && !viaEmail ? prospect.lastTouch : prospect.linkedinLastTouch),
+    linkedinNextFollowUp: text(isLegacy && !viaEmail ? prospect.nextFollowUp : prospect.linkedinNextFollowUp),
+    emailLastTouch: text(isLegacy && viaEmail ? prospect.lastTouch : prospect.emailLastTouch),
+    emailNextFollowUp: text(isLegacy && viaEmail ? prospect.nextFollowUp : prospect.emailNextFollowUp),
+    status: ["replied", "complete"].includes(prospect.status) ? prospect.status : "active",
+    note: text(prospect.note),
+  };
 }
 
 function persist() {
@@ -305,7 +317,7 @@ function statusLabel(status) {
   return {
     active: "Active",
     replied: "Replied",
-    complete: "Complete",
+    complete: "No follow-up needed",
   }[status];
 }
 
@@ -451,6 +463,12 @@ function openDetail(id) {
       <button class="quick-button emphasis" data-contacted="${prospect.id}" data-channel="LinkedIn">LinkedIn contacted</button>
       <button class="quick-button emphasis" data-contacted="${prospect.id}" data-channel="Email">Email contacted</button>
       <button class="quick-button" data-replied="${prospect.id}">Replied</button>
+      ${
+        prospect.status === "complete"
+          ? ""
+          : `<button class="quick-button" data-done="${prospect.id}">No follow-up needed</button>`
+      }
+      <button class="quick-button" data-edit="${prospect.id}">Edit</button>
       <button class="danger-button" data-delete="${prospect.id}">Delete</button>
     </div>
   `;
@@ -501,6 +519,17 @@ function handleAction(target) {
     );
   }
 
+  const doneId = target.closest("[data-done]")?.dataset.done;
+  if (doneId) {
+    return updateProspect(doneId, { status: "complete" }, "Off your list. Still saved under Prospects.");
+  }
+
+  const editId = target.closest("[data-edit]")?.dataset.edit;
+  if (editId) {
+    elements.detailDialog.close();
+    return openForm(prospects.find((prospect) => prospect.id === editId));
+  }
+
   const deleteId = target.closest("[data-delete]")?.dataset.delete;
   if (deleteId && confirm("Delete this prospect?")) {
     prospects = prospects.filter((prospect) => prospect.id !== deleteId);
@@ -511,7 +540,7 @@ function handleAction(target) {
   }
 
   if (target.closest("[data-close-detail]")) elements.detailDialog.close();
-  if (target.closest("[data-empty-add]")) elements.prospectDialog.showModal();
+  if (target.closest("[data-empty-add]")) openForm();
 }
 
 elements.dateLabel.textContent = today.toLocaleDateString(undefined, {
@@ -520,12 +549,37 @@ elements.dateLabel.textContent = today.toLocaleDateString(undefined, {
   day: "numeric",
 });
 
-elements.addProspectButton.addEventListener("click", () => {
+const FORM_FIELDS = [
+  "name",
+  "account",
+  "linkedinUrl",
+  "email",
+  "linkedinLastTouch",
+  "linkedinNextFollowUp",
+  "emailLastTouch",
+  "emailNextFollowUp",
+  "status",
+  "note",
+];
+
+function openForm(prospect) {
+  editingId = prospect?.id ?? null;
   elements.prospectForm.reset();
   renderAccountOptions();
   elements.newAccountLabel.hidden = true;
+  elements.newAccountInput.required = false;
+  elements.formEyebrow.textContent = prospect ? "Update relationship" : "New relationship";
+  elements.formTitle.textContent = prospect ? "Edit prospect" : "Add prospect";
+  elements.saveProspectButton.textContent = prospect ? "Save changes" : "Save prospect";
+  if (prospect) {
+    FORM_FIELDS.forEach((field) => {
+      elements.prospectForm.elements[field].value = prospect[field] || "";
+    });
+  }
   elements.prospectDialog.showModal();
-});
+}
+
+elements.addProspectButton.addEventListener("click", () => openForm());
 
 elements.accountSelect.addEventListener("change", () => {
   const isNew = elements.accountSelect.value === "__new__";
@@ -543,12 +597,18 @@ elements.prospectForm.addEventListener("submit", (event) => {
     data.account = elements.newAccountInput.value.trim();
     if (!data.account) return;
   }
-  prospects.unshift({ id: crypto.randomUUID(), ...data });
+  if (editingId) {
+    prospects = prospects.map((prospect) => (prospect.id === editingId ? { ...prospect, ...data } : prospect));
+  } else {
+    prospects.unshift({ id: crypto.randomUUID(), ...data });
+  }
+  const message = editingId ? "Changes saved." : "Prospect added.";
+  editingId = null;
   persist();
   elements.prospectDialog.close();
   elements.prospectForm.reset();
   render();
-  showToast("Prospect added.");
+  showToast(message);
 });
 
 document.addEventListener("click", (event) => handleAction(event.target));
@@ -588,7 +648,7 @@ elements.importInput.addEventListener("change", async () => {
   try {
     const parsed = JSON.parse(await file.text());
     if (!Array.isArray(parsed.prospects)) throw new Error("Invalid backup");
-    prospects = parsed.prospects;
+    prospects = parsed.prospects.filter((prospect) => prospect?.name).map(normalizeProspect);
     persist();
     render();
     showToast("Backup imported.");
