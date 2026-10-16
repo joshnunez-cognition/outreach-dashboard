@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Outreach</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div>
+          <div class="brand">
+            <span class="brand-mark">O</span>
+            <span>Outreach</span>
+          </div>
+          <nav aria-label="Primary navigation">
+            <button class="nav-item active" data-page="today">
+              <span>Today</span><span class="nav-count" id="todayCount">0</span>
+            </button>
+            <button class="nav-item" data-page="prospects">Prospects</button>
+          </nav>
+        </div>
+        <div class="sidebar-actions">
+          <button class="text-button" id="exportButton">Export backup</button>
+          <label class="text-button file-button">
+            Import backup
+            <input type="file" id="importInput" accept=".json" />
+          </label>
+          <p>Stored only in this browser.</p>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="dateLabel"></p>
+            <h1 id="pageTitle">Today</h1>
+          </div>
+          <button class="primary-button" id="addProspectButton">Add prospect</button>
+        </header>
+
+        <section id="todayPage">
+          <div class="summary-grid">
+            <article class="summary-card">
+              <span>Due today</span>
+              <strong id="dueTodayMetric">0</strong>
+            </article>
+            <article class="summary-card">
+              <span>Overdue</span>
+              <strong id="overdueMetric">0</strong>
+            </article>
+            <article class="summary-card">
+              <span>Upcoming</span>
+              <strong id="waitingMetric">0</strong>
+            </article>
+          </div>
+
+          <div class="section-toolbar">
+            <div>
+              <h2>Your queue</h2>
+              <p>Only the people who need your attention.</p>
+            </div>
+            <div class="segmented-control" aria-label="Queue layout">
+              <button class="active" data-view="priority">Priority</button>
+              <button data-view="account">By account</button>
+            </div>
+          </div>
+          <div id="queue"></div>
+        </section>
+
+        <section id="prospectsPage" hidden>
+          <div class="section-toolbar">
+            <div>
+              <h2>All prospects</h2>
+              <p>Search, review, and update every relationship.</p>
+            </div>
+            <input class="search-input" id="searchInput" type="search" placeholder="Search prospects" />
+          </div>
+          <div id="prospectList"></div>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="prospectDialog">
+      <form method="dialog" id="prospectForm">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">New relationship</p>
+            <h2>Add prospect</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Name
+            <input name="name" required placeholder="Avery Chen" />
+          </label>
+          <label>
+            Account
+            <select name="account" id="accountSelect" required></select>
+          </label>
+        </div>
+        <label id="newAccountLabel" hidden>
+          New account name
+          <input id="newAccountInput" placeholder="Acme" />
+        </label>
+        <div class="form-grid">
+          <label>
+            LinkedIn profile
+            <input name="linkedinUrl" type="url" placeholder="https://linkedin.com/in/..." />
+          </label>
+          <label>
+            Email address
+            <input name="email" type="email" placeholder="name@company.com" />
+          </label>
+        </div>
+        <fieldset>
+          <legend>LinkedIn tracking</legend>
+          <div class="form-grid">
+            <label>
+              Last touch
+              <input name="linkedinLastTouch" type="date" />
+            </label>
+            <label>
+              Next follow-up
+              <input name="linkedinNextFollowUp" type="date" />
+            </label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Email tracking</legend>
+          <div class="form-grid">
+            <label>
+              Last touch
+              <input name="emailLastTouch" type="date" />
+            </label>
+            <label>
+              Next follow-up
+              <input name="emailNextFollowUp" type="date" />
+            </label>
+          </div>
+        </fieldset>
+        <label>
+          Status
+          <select name="status">
+            <option value="active">Active</option>
+            <option value="replied">Replied</option>
+            <option value="complete">Complete</option>
+          </select>
+        </label>
+        <label>
+          Note
+          <textarea name="note" rows="3" placeholder="What should you remember before reaching out?"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button class="secondary-button" value="cancel">Cancel</button>
+          <button class="primary-button" value="default" id="saveProspectButton">Save prospect</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="detailDialog">
+      <div id="detailContent"></div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
