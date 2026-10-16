@@ -86,8 +86,8 @@
       <form method="dialog" id="prospectForm">
         <div class="dialog-header">
           <div>
-            <p class="eyebrow">New relationship</p>
-            <h2>Add prospect</h2>
+            <p class="eyebrow" id="formEyebrow">New relationship</p>
+            <h2 id="formTitle">Add prospect</h2>
           </div>
           <button class="icon-button" value="cancel" aria-label="Close">×</button>
         </div>
@@ -147,7 +147,7 @@
           <select name="status">
             <option value="active">Active</option>
             <option value="replied">Replied</option>
-            <option value="complete">Complete</option>
+            <option value="complete">No follow-up needed</option>
           </select>
         </label>
         <label>
